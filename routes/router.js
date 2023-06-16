@@ -5,6 +5,7 @@ const uuid = require('uuid');
 const jwt = require('jsonwebtoken');
 const db = require('../lib/db.js');
 const userMiddleware = require('../middleware/users.js');
+const { json } = require('body-parser');
 router.post('sign-up', userMiddleware.validateRegister, (req, res, next) => {});
 router.post('login', (req, res, next) => {});
 // router.get('/secret-route', (req, res, next) => {
@@ -18,7 +19,6 @@ router.post('/sign-up', userMiddleware.validateRegister, (req, res, next) => {
     const name = req.body.name;
     console.log("User name: "+uname)
     console.log("Real name: "+name)
-    //db.query(`SELECT * FROM users WHERE LOWER(username) = LOWER($1)`,['uname'],
     db.query(`SELECT * FROM users WHERE LOWER(username) = $1`,[uname], (err, result) => {
         //console.log("Length0: "+result)
         console.log("Length1: "+result.rows.length)
@@ -49,22 +49,45 @@ router.post('/sign-up', userMiddleware.validateRegister, (req, res, next) => {
               console.log("Spol1: "+usrspol)
               console.log("grad1: "+usrgradid)
               console.log("grupa1: "+usrgroupid)
-              //const { usrrealname,usrname} = request.body
+              if(usrgradid=='new'){
+                  const novigrad=req.body.novigrad;
               db.query(
-                `INSERT INTO users (name,username,email,spol,gradid,groupid,password, registered,last_login) VALUES ( $1,$2,$3,$4,$5,$6, '${hash}', now(),now())`,[usrrealname,usrname,usremail,usrspol,usrgradid,usrgroupid],
+                `INSERT INTO gradovi (naziv) \
+              VALUES ($1) returning id`, [novigrad], function(error, results){
+                if (error) {
+                  throw error
+                }
+                    db.query(
+                      `INSERT INTO users (name,username,email,spol,gradid,groupid,password, registered,last_login) \
+                      VALUES ( $1,$2,$3,$4,$5,$6, '${hash}', \
+                      now(),now())`,[usrrealname,usrname,usremail,usrspol,results.rows[0].id,usrgroupid],
+                      (err, result) => {
+                        if (err) {
+                          throw err;
+                        }
+                        return res.status(201).send({
+                          msg: 'Registered!'
+                        });
+                      }
+                    );
+              }
+              )             
+            }
+            else{
+              db.query(
+                `INSERT INTO users (name,username,email,spol,gradid,groupid,password, registered,last_login) \
+                VALUES ( $1,$2,$3,$4,$5,$6, '${hash}', \
+                now(),now())`,[usrrealname,usrname,usremail,usrspol,usrgradid,usrgroupid],
                 (err, result) => {
-                  //console.log("Length3: "+result.length)
                   if (err) {
                     throw err;
-                    // return res.status(400).send({
-                    //   msg: err
-                    // });
                   }
                   return res.status(201).send({
                     msg: 'Registered!'
                   });
                 }
               );
+            }
             }
           });
         }
@@ -123,14 +146,11 @@ router.post('/sign-up', userMiddleware.validateRegister, (req, res, next) => {
                 if (errs) {
                   throw errs
                 }
-                //res.status(200).json(result.rows)
               })
               return res.status(200).send({
                 msg: 'Logged in!',
                 token,
                 user: result.rows[0]
-                //group: results.rows[0]
-                //userIdGroup: result.rows[0].groupid
               });
               
             }
